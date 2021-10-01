@@ -3,6 +3,7 @@ package com.inu.cameraandgallery1
 import android.Manifest
 import android.app.Activity
 import android.content.ContentValues
+import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,7 +14,10 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.inu.cameraandgallery1.databinding.ActivityMainBinding
@@ -24,6 +28,9 @@ import java.util.*
 class MainActivity : BaseActivity() {
 
     val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
+
+    private lateinit var getContent : ActivityResultLauncher<Intent>
+    private lateinit var getContent2 : ActivityResultLauncher<Intent>
 
     val CAMERA_PERMISSION = arrayOf(Manifest.permission.CAMERA)
     val STORAGE_PERMISSION = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -41,6 +48,48 @@ class MainActivity : BaseActivity() {
         setContentView(binding.root)
 // 1. 공용저장소 권한이 있는지 확인
         requirePermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), FLAG_PERM_STORAGE)
+
+// 바뀐 registerForActivityResult API 구현방법
+        getContent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->  // type : null
+                    binding.imagePreview.setImageURI(uri)
+                }
+            }
+        }
+
+        getContent2 = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                result ->
+            if (result.resultCode == RESULT_OK) {
+                realUri?.let { uri ->  // null이 아닐 때만, type : vnd.android.cursor.dir/image
+                    val bitmap = loadBitmap(uri)
+                    binding.imagePreview.setImageBitmap(bitmap)
+                    realUri = null
+                }
+            }
+        }
+
+            /*    when (result.resultCode) {
+                    FLAG_REQ_CAMERA -> {
+                        //              if (data?.extras?.get("data") != null) {  // 미리보기 이미지
+                        //                  val bitmap = data?.extras?.get("data") as Bitmap
+                        /*             binding.imagePreview.setImageBitmap(bitmap)
+                                     val uri = binding.saveImageFile
+                                     binding.imagePreview */
+                        realUri?.let { uri ->  // null이 아닐 때만
+                            val bitmap = loadBitmap(uri)
+                            binding.imagePreview.setImageBitmap(bitmap)
+
+                            realUri = null
+                        }
+                    }
+                    FLAG_REQ_GALLERY -> {
+                        result.data?.data?.let { uri ->
+                            binding.imagePreview.setImageURI(uri)
+                        }
+                    } */
+
 
     }
 
@@ -61,17 +110,26 @@ class MainActivity : BaseActivity() {
     // 3. 카메라에 찍은 사진을 저장하기 위한 uri를 넘겨준다
     fun openCamera() {
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+
         createImageUri(newfileName(), "image/jpg")?.let { uri ->
             realUri = uri
             intent.putExtra(MediaStore.EXTRA_OUTPUT, realUri)
-            startActivityForResult(intent, FLAG_REQ_CAMERA)
+            if (intent.type == null)
+                Log.d(TAG, "intent Type(카메라) : ${intent.type}") // null
+            else Log.d(TAG, "intent Type(카메라) : 모름")  // vnd.android.cursor.dir/image
+         //   startActivityForResult(intent, FLAG_REQ_CAMERA) 대체
+            getContent2.launch(intent)
         }
     }
 
     fun openGallery() {
         val intent = Intent(Intent.ACTION_PICK)
         intent.type = MediaStore.Images.Media.CONTENT_TYPE
-        startActivityForResult(intent, FLAG_REQ_GALLERY)
+        if (intent.type == "vnd.android.cursor.dir/image")
+            Log.d(TAG, "intent Type(갤러리) : ${intent.type}")  // vnd.android.cursor.dir/image
+        else Log.d(TAG, "intent Type(갤러리) : 모름")  // vnd.android.cursor.dir/image
+       // startActivityForResult(intent, FLAG_REQ_GALLERY) 대체
+        getContent.launch(intent)
     }
 
     // 원본 이미지를 저장할 uri를 미디어스토어(db)에 생성하는 메서드
