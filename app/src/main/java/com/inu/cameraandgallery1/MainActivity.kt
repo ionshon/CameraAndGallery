@@ -34,6 +34,8 @@ class MainActivity : BaseActivity() {
     val FLAG_REQ_CAMERA = 101
     val FLAG_REQ_STORAGE = 102
 
+    val FLAG_REQ_GALLERY = 103
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
@@ -46,6 +48,10 @@ class MainActivity : BaseActivity() {
         // 2. 카메라 요청시 권한을 먼저 체크하고 승인되었으면 카메라 연다
         binding.buttonCamera.setOnClickListener {
             requirePermissions(arrayOf(Manifest.permission.CAMERA), FLAG_REQ_CAMERA)
+        }
+        //5. 갤러리 버튼이 클릭되면 갤러리 연다
+        binding.buttonGallery.setOnClickListener {
+            openGallery()
         }
     }
 
@@ -60,6 +66,12 @@ class MainActivity : BaseActivity() {
             intent.putExtra(MediaStore.EXTRA_OUTPUT, realUri)
             startActivityForResult(intent, FLAG_REQ_CAMERA)
         }
+    }
+
+    fun openGallery() {
+        val intent = Intent(Intent.ACTION_PICK)
+        intent.type = MediaStore.Images.Media.CONTENT_TYPE
+        startActivityForResult(intent, FLAG_REQ_GALLERY)
     }
 
     // 원본 이미지를 저장할 uri를 미디어스토어(db)에 생성하는 메서드
@@ -120,7 +132,7 @@ class MainActivity : BaseActivity() {
     //    binding.buttonGallery.
     }
 
-    // 4. 카메라를 찍은 후에 호출된다.
+    // 4. 카메라를 찍은 후에 호출된다. 6. 갤러리에서 선택후 호출
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
@@ -137,6 +149,11 @@ class MainActivity : BaseActivity() {
 
                             realUri = null
                         }
+                }
+                FLAG_REQ_GALLERY -> {
+                    data?.data?.let { uri ->
+                        binding.imagePreview.setImageURI(uri)
+                    }
                 }
             }
         }
